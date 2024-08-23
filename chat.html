@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>الدردشة العامة</title>
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: url('https://i.pinimg.com/originals/e4/fa/06/e4fa061200efe8e8b35955892e984e60.gif') no-repeat center center fixed;
+            background-size: cover;
+            color: white; /* اجعل النص أبيضًا ليكون مرئيًا على الخلفية الداكنة */
+            display: flex;
+            flex-direction: column;
+        }
+
+        #chat-container {
+            flex: 1;
+            position: relative;
+            z-index: 2;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+
+        #messages {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+        }
+
+        #messageInput {
+            width: calc(100% - 22px); /* لتجنب التحرك أثناء وجود الزر */
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
+            background: rgba(0, 0, 0, 0.5); /* خلفية شبه شفافة للرسائل */
+            color: white;
+        }
+
+        #sendMessage {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #sendMessage:hover {
+            background-color: #45a049;
+        }
+
+        #online-users {
+            margin-top: 20px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 5px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        #online-users h3 {
+            margin: 0;
+            font-size: 18px;
+            color: #FFD700; /* لون ذهبي لعنوان المتواجدين أونلاين */
+        }
+
+        #online-users ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 10px 0 0 0;
+        }
+
+        #online-users ul li {
+            margin-bottom: 5px;
+            color: #ffffff; /* لون أبيض للأسماء */
+        }
+    </style>
+</head>
+<body>
+    <div id="chat-container">
+        <div id="messages"></div>
+        <input type="text" id="messageInput" placeholder="اكتب رسالتك هنا...">
+        <button id="sendMessage">إرسال</button>
+    </div>
+
+    <div id="online-users">
+        <h3>المتواجدون أونلاين</h3>
+        <ul id="usersList"></ul>
+    </div>
+
+    <script type="module">
+        // كود Firebase الذي قدمته
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+        import { getDatabase, ref, push, onValue, set, onDisconnect, remove } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyASFTlsVzm5J0LKVdqq6RDaSxNsg4jkmxY",
+            authDomain: "mad-303.firebaseapp.com",
+            databaseURL: "https://mad-303-default-rtdb.firebaseio.com",
+            projectId: "mad-303",
+            storageBucket: "mad-303.appspot.com",
+            messagingSenderId: "1054809660443",
+            appId: "1:1054809660443:web:3bf16e1a56beefb329ecbe",
+            measurementId: "G-W52CXNRJYD"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        // مرجع إلى قاعدة البيانات
+        const messagesRef = ref(database, 'messages');
+        const onlineUsersRef = ref(database, 'onlineUsers');
+
+        // الحصول على اسم المستخدم واللون من LocalStorage
+        const username = localStorage.getItem('username') || "مجهول";
+        const usercolor = localStorage.getItem('usercolor') || "#000000";
+
+        // إرسال الرسائل إلى Firebase
+        document.getElementById('sendMessage').addEventListener('click', () => {
+            const message = document.getElementById('messageInput').value;
+            if (message.trim() !== "") {
+                push(messagesRef, { username: username, text: message, color: usercolor });
+                document.getElementById('messageInput').value = ''; // مسح صندوق الرسائل بعد الإرسال
+            }
+        });
+
+        // عرض الرسائل الواردة من Firebase
+        onValue(messagesRef, (snapshot) => {
+            const messagesContainer = document.getElementById('messages');
+            messagesContainer.innerHTML = ''; // مسح الرسائل القديمة
+            snapshot.forEach((childSnapshot) => {
+                const messageData = childSnapshot.val();
+                const messageElement = document.createElement('div');
+                messageElement.innerHTML = `<strong style="color:${messageData.color};">${messageData.username}:</strong> ${messageData.text}`;
+                messagesContainer.appendChild(messageElement);
+            });
+        });
+
+        // إضافة المستخدم إلى قائمة المتواجدين أونلاين
+        const userStatusRef = ref(database, 'onlineUsers/' + username);
+        set(userStatusRef, { username: username, color: usercolor });
+
+        // إزالة المستخدم من القائمة عند الخروج
+        onDisconnect(userStatusRef).remove();
+
+        // عرض قائمة المتواجدين أونلاين
+        onValue(onlineUsersRef, (snapshot) => {
+            const usersList = document.getElementById('usersList');
+            usersList.innerHTML = ''; // مسح القائمة القديمة
+            snapshot.forEach((childSnapshot) => {
+                const userData = childSnapshot.val();
+                const userElement = document.createElement('li');
+                userElement.style.color = userData.color; // استخدام اللون المحدد للمستخدم
+                userElement.textContent = userData.username;
+                usersList.appendChild(userElement);
+            });
+        });
+    </script>
+
+</body></html>
